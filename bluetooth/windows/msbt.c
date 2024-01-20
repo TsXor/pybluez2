@@ -140,7 +140,7 @@ msbt_socket(PyObject *self, PyObject *args)
     int family = AF_BTH;
     int type;
     int proto;
-    int sockfd = -1;
+    SOCKET sockfd = INVALID_SOCKET;
 
     if(!PyArg_ParseTuple(args, "ii", &type, &proto)) return 0;
 
@@ -150,7 +150,7 @@ msbt_socket(PyObject *self, PyObject *args)
 
     _CHECK_OR_RAISE_WSA( SOCKET_ERROR != sockfd );
 
-    return PyLong_FromLong( sockfd );
+    return PyLong_FromSize_t( sockfd );
 };
 PyDoc_STRVAR(msbt_socket_doc, "TODO");
 
@@ -159,7 +159,7 @@ msbt_bind(PyObject *self, PyObject *args)
 {
     wchar_t *addrstr = NULL;
     int addrstrlen = -1;
-    int sockfd = -1;
+    SOCKET sockfd = INVALID_SOCKET;
     int port = -1;
     char buf[100] = { 0 };
     int buf_len = sizeof( buf );
@@ -168,7 +168,7 @@ msbt_bind(PyObject *self, PyObject *args)
     SOCKADDR_BTH sa = { 0 };
     int sa_len = sizeof(sa);
 
-    if(!PyArg_ParseTuple(args, "iu#i", &sockfd, &addrstr, &addrstrlen, &port))
+    if(!PyArg_ParseTuple(args, "nu#i", &sockfd, &addrstr, &addrstrlen, &port))
         return 0;
 
     if( addrstrlen == 0 ) {
@@ -193,10 +193,10 @@ PyDoc_STRVAR(msbt_bind_doc, "TODO");
 static PyObject *
 msbt_listen(PyObject *self, PyObject *args)
 {
-    int sockfd = -1;
+    SOCKET sockfd = INVALID_SOCKET;
     int backlog = -1;
     DWORD status;
-    if(!PyArg_ParseTuple(args, "ii", &sockfd, &backlog)) return 0;
+    if(!PyArg_ParseTuple(args, "ni", &sockfd, &backlog)) return 0;
 
     Py_BEGIN_ALLOW_THREADS;
     status = listen(sockfd, backlog);
@@ -211,15 +211,15 @@ PyDoc_STRVAR(msbt_listen_doc, "TODO");
 static PyObject *
 msbt_accept(PyObject *self, PyObject *args)
 {
-    int sockfd = -1;
-    int clientfd = -1;
+    SOCKET sockfd = INVALID_SOCKET;
+    SOCKET clientfd = INVALID_SOCKET;
     SOCKADDR_BTH ca = { 0 };
     int ca_len = sizeof(ca);
     PyObject *result = NULL;
     char buf[100] = { 0 };
     int buf_len = sizeof(buf);
 
-    if(!PyArg_ParseTuple(args, "i", &sockfd)) return 0;
+    if(!PyArg_ParseTuple(args, "n", &sockfd)) return 0;
     
     Py_BEGIN_ALLOW_THREADS;
     clientfd = accept(sockfd, (LPSOCKADDR)&ca, &ca_len);
@@ -228,7 +228,7 @@ msbt_accept(PyObject *self, PyObject *args)
     _CHECK_OR_RAISE_WSA( SOCKET_ERROR != clientfd );
 
     ba2str(ca.btAddr, buf, _countof(buf));
-    result = Py_BuildValue( "isi", clientfd, buf, ca.port );
+    result = Py_BuildValue( "nsi", clientfd, buf, ca.port );
     return result;
 };
 PyDoc_STRVAR(msbt_accept_doc, "TODO");
@@ -236,14 +236,14 @@ PyDoc_STRVAR(msbt_accept_doc, "TODO");
 static PyObject *
 msbt_connect(PyObject *self, PyObject *args)
 {
-    int sockfd = -1;
+    SOCKET sockfd = INVALID_SOCKET;
     wchar_t *addrstr = NULL;
     int port = -1;
     SOCKADDR_BTH sa = { 0 };
     int sa_len = sizeof(sa);
     DWORD status;
 
-    if(!PyArg_ParseTuple(args, "iui", &sockfd, &addrstr, &port)) return 0;
+    if(!PyArg_ParseTuple(args, "nui", &sockfd, &addrstr, &port)) return 0;
 
     if( SOCKET_ERROR == WSAStringToAddress( addrstr, AF_BTH, NULL, 
                 (LPSOCKADDR)&sa, &sa_len ) ) {
@@ -266,16 +266,16 @@ PyDoc_STRVAR(msbt_connect_doc, "TODO");
 static PyObject *
 msbt_send(PyObject *self, PyObject *args)
 {
-    int sockfd = -1;
+    SOCKET sockfd = INVALID_SOCKET;
     Py_buffer data;
     int flags = 0;
     int sent = 0;
 
-    if(!PyArg_ParseTuple(args, "is*|i", &sockfd, &data, &flags)) 
+    if(!PyArg_ParseTuple(args, "ns*|i", &sockfd, &data, &flags)) 
         return 0;
 
     Py_BEGIN_ALLOW_THREADS;
-    sent = send(sockfd, data.buf, data.len, flags);
+    sent = send(sockfd, data.buf, (int)data.len, flags);
     Py_END_ALLOW_THREADS;
     PyBuffer_Release(&data);
 
@@ -288,13 +288,13 @@ PyDoc_STRVAR(msbt_send_doc, "TODO");
 static PyObject *
 msbt_recv(PyObject *self, PyObject *args)
 {
-    int sockfd = -1;
+    SOCKET sockfd = INVALID_SOCKET;
     PyObject *buf = NULL;
     int datalen = -1;
     int flags = 0;
     int received = 0;
 
-    if(!PyArg_ParseTuple(args, "ii|i", &sockfd, &datalen, &flags))
+    if(!PyArg_ParseTuple(args, "ni|i", &sockfd, &datalen, &flags))
         return 0;
 
     buf = PyBytes_FromStringAndSize((char*)0, datalen);
@@ -315,9 +315,9 @@ PyDoc_STRVAR(msbt_recv_doc, "TODO");
 static PyObject *
 msbt_close(PyObject *self, PyObject *args)
 {
-    int sockfd = -1;
+    SOCKET sockfd = INVALID_SOCKET;
     int status;
-    if(!PyArg_ParseTuple( args, "i", &sockfd )) return 0;
+    if(!PyArg_ParseTuple( args, "n", &sockfd )) return 0;
     
     Py_BEGIN_ALLOW_THREADS;
     status = closesocket(sockfd);
@@ -330,13 +330,13 @@ PyDoc_STRVAR(msbt_close_doc, "TODO");
 static PyObject *
 msbt_getpeername(PyObject *self, PyObject *args)
 {
-    int sockfd = -1;
+    SOCKET sockfd = INVALID_SOCKET;
     SOCKADDR_BTH sa = { 0 };
     int sa_len = sizeof(sa);
     char buf[18] = { 0 };
     int buf_len = sizeof(buf);
     int status;
-    if(!PyArg_ParseTuple( args, "i", &sockfd )) return 0;
+    if(!PyArg_ParseTuple( args, "n", &sockfd )) return 0;
 
     sa.addressFamily = AF_BTH;
     Py_BEGIN_ALLOW_THREADS;
@@ -362,13 +362,13 @@ call will not be returned by getpeername.");
 static PyObject *
 msbt_getsockname(PyObject *self, PyObject *args)
 {
-    int sockfd = -1;
+    SOCKET sockfd = INVALID_SOCKET;
     SOCKADDR_BTH sa = { 0 };
     int sa_len = sizeof(sa);
     char buf[18] = { 0 };
     int buf_len = sizeof(buf);
     int status;
-    if(!PyArg_ParseTuple( args, "i", &sockfd )) return 0;
+    if(!PyArg_ParseTuple( args, "n", &sockfd )) return 0;
 
     sa.addressFamily = AF_BTH;
     Py_BEGIN_ALLOW_THREADS;
@@ -385,13 +385,13 @@ PyDoc_STRVAR(msbt_getsockname_doc, "TODO");
 static PyObject *
 msbt_dup(PyObject *self, PyObject *args)
 {
-    int sockfd = -1;
-    int newsockfd = -1;
+    SOCKET sockfd = INVALID_SOCKET;
+    SOCKET newsockfd = INVALID_SOCKET;
     int status;
     DWORD pid;
     WSAPROTOCOL_INFO pi = { 0 };
 
-    if(!PyArg_ParseTuple( args, "i", &sockfd )) return 0;
+    if(!PyArg_ParseTuple( args, "n", &sockfd )) return 0;
 
     // prepare to duplicate
     pid = GetCurrentProcessId();
@@ -405,7 +405,7 @@ msbt_dup(PyObject *self, PyObject *args)
             &pi, 0, 0 );
     _CHECK_OR_RAISE_WSA( INVALID_SOCKET != newsockfd );
     
-    return PyLong_FromLong( newsockfd );
+    return PyLong_FromSize_t( newsockfd );
 }
 PyDoc_STRVAR(msbt_dup_doc, "TODO");
 
@@ -415,7 +415,7 @@ static int bt_adapter_present()
    int hwactive = 1;
    SOCKADDR_BTH sa = { 0 };
 
-   int s = socket(AF_BTH, SOCK_STREAM, BTHPROTO_RFCOMM);
+   SOCKET s = socket(AF_BTH, SOCK_STREAM, BTHPROTO_RFCOMM);
 
    sa.addressFamily = AF_BTH;
    sa.port = BT_PORT_ANY;
@@ -633,7 +633,7 @@ msbt_find_service(PyObject *self, PyObject *args)
         // bind a temporary socket and get its Bluetooth address
         SOCKADDR_BTH sa = { 0 };
         int sa_len = sizeof(sa);
-        int tmpfd = socket(AF_BTH, SOCK_STREAM, BTHPROTO_RFCOMM);
+        SOCKET tmpfd = socket(AF_BTH, SOCK_STREAM, BTHPROTO_RFCOMM);
 
         _CHECK_OR_RAISE_WSA( tmpfd >= 0 );
         sa.addressFamily = AF_BTH;
@@ -644,7 +644,7 @@ msbt_find_service(PyObject *self, PyObject *args)
                     &sa_len ) );
 
         ba2str(sa.btAddr, localAddressBuf, _countof(localAddressBuf) );
-        _close(tmpfd);
+        closesocket(tmpfd);
 #endif
 
         flags |= LUP_RES_SERVICE;
@@ -775,7 +775,7 @@ msbt_set_service_raw(PyObject *self, PyObject *args)
     PyObject *result = NULL;
     HANDLE rh = 0;
 
-    if(!PyArg_ParseTuple(args, "s#i|i", &record, &reclen, &advertise, &rh))
+    if(!PyArg_ParseTuple(args, "s#i|n", &record, &reclen, &advertise, &rh))
         return 0;
 
     silen = sizeof(BTH_SET_SERVICE) + reclen - 1;
@@ -805,7 +805,7 @@ msbt_set_service_raw(PyObject *self, PyObject *args)
         return 0;
     }
 
-    return PyLong_FromLong( (unsigned long) rh );
+    return PyLong_FromSize_t( (size_t)rh );
 }
 PyDoc_STRVAR(msbt_set_service_raw_doc, "");
 
@@ -825,9 +825,9 @@ msbt_set_service(PyObject *self, PyObject *args)
     char *service_class_id_str = NULL;
 	CSADDR_INFO sockInfo = { 0 };
     GUID uuid = { 0 };
-    int sockfd;
+    SOCKET sockfd;
 
-    if(!PyArg_ParseTuple(args, "iiuus", &sockfd, &advertise, &service_name, 
+    if(!PyArg_ParseTuple(args, "niuus", &sockfd, &advertise, &service_name, 
                 &service_desc, &service_class_id_str))
         return 0;
 
@@ -865,10 +865,10 @@ PyDoc_STRVAR(msbt_set_service_doc, "");
 static PyObject *
 msbt_setblocking(PyObject *self, PyObject *args)
 {
-    int sockfd = -1;
+    SOCKET sockfd = INVALID_SOCKET;
     int block = -1;
 
-    if(!PyArg_ParseTuple(args, "ii", &sockfd, &block)) return 0;
+    if(!PyArg_ParseTuple(args, "ni", &sockfd, &block)) return 0;
     block = !block; //set zero to non-zero and non-zero to zero
     ioctlsocket( sockfd, FIONBIO, &block);
 
@@ -879,12 +879,12 @@ PyDoc_STRVAR(msbt_setblocking_doc, "");
 static PyObject *
 msbt_settimeout(PyObject *self, PyObject *args)
 {
-    int sockfd = -1;
+    SOCKET sockfd = INVALID_SOCKET;
     double secondTimeout = -1;
     DWORD timeout = -1;
     int timeoutLen = sizeof(DWORD);
 
-    if(!PyArg_ParseTuple(args, "id", &sockfd, &secondTimeout)) return 0;
+    if(!PyArg_ParseTuple(args, "nd", &sockfd, &secondTimeout)) return 0;
 
     timeout = (DWORD) (secondTimeout * 1000);
 
@@ -907,12 +907,12 @@ PyDoc_STRVAR(msbt_settimeout_doc, "");
 static PyObject *
 msbt_gettimeout(PyObject *self, PyObject *args)
 {
-    int sockfd = -1;
+    SOCKET sockfd = INVALID_SOCKET;
     DWORD recv_timeout = -1;
     int recv_timeoutLen = sizeof(DWORD);
     double timeout = -1;
 
-    if(!PyArg_ParseTuple(args, "i", &sockfd)) return 0;
+    if(!PyArg_ParseTuple(args, "n", &sockfd)) return 0;
 
     if(getsockopt(sockfd, SOL_SOCKET, SO_RCVTIMEO, (char*)&recv_timeout, 
                 &recv_timeoutLen) != 0) {
@@ -934,13 +934,13 @@ PyDoc_STRVAR(msbt_gettimeout_doc, "");
 static PyObject *
 msbt_setsockopt(PyObject *s, PyObject *args)
 {
-    int sockfd = -1;
+    SOCKET sockfd = INVALID_SOCKET;
     int level;
     ULONG optname;
     int res;
     ULONG flag;
 
-    if (!PyArg_ParseTuple(args, "iiIi:setsockopt", &sockfd, &level, &optname,
+    if (!PyArg_ParseTuple(args, "niIi:setsockopt", &sockfd, &level, &optname,
             &flag)) {
         return 0;
     }
@@ -967,14 +967,14 @@ The value argument can either be an integer or a string.");
 static PyObject *
 msbt_getsockopt(PyObject *s, PyObject *args)
 {
-    int sockfd = -1;
+    SOCKET sockfd = INVALID_SOCKET;
     int level;
     ULONG optname;
     int res;
     ULONG flag;
     int flagsize = sizeof flag;
 
-    if (!PyArg_ParseTuple(args, "iiI", &sockfd, &level, &optname))
+    if (!PyArg_ParseTuple(args, "niI", &sockfd, &level, &optname))
         return 0;
 
     res = getsockopt(sockfd, level, optname, (void *) &flag, &flagsize);
@@ -982,7 +982,7 @@ msbt_getsockopt(PyObject *s, PyObject *args)
         Err_SetFromWSALastError(PyExc_IOError);
         return 0;
     }
-    return PyLong_FromLong(flag);
+    return PyLong_FromUnsignedLong(flag);
 }
 
 PyDoc_STRVAR(msbt_getsockopt_doc,
